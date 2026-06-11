@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EO Gujarat | GST Declaration Form</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --navy:#152a4a; --blue:#1f5fbf; --light:#f4f7fb; --border:#d7dfeb;
+    --green:#1d8a4e; --red:#c0392b; --text:#2b2f36;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:'Segoe UI', Arial, sans-serif; background:var(--light); color:var(--text); line-height:1.55;}
+  .wrap{max-width:820px; margin:0 auto; padding:24px 16px 60px;}
+  .card{background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:0 2px 10px rgba(21,42,74,.07); overflow:hidden;}
+  .head{background:var(--navy); color:#fff; padding:28px 32px; text-align:center;}
+  .head .org{letter-spacing:2px; font-size:12px; text-transform:uppercase; opacity:.85; margin-bottom:8px;}
+  .head h1{font-size:20px; line-height:1.4; font-weight:700;}
+  .head .date-line{margin-top:10px; font-size:13px; opacity:.85;}
+  .body{padding:28px 32px;}
+  @media(max-width:600px){ .body{padding:20px 16px;} .head{padding:22px 16px;} }
+  .intro{background:var(--light); border-left:4px solid var(--blue); padding:14px 16px; border-radius:6px; font-size:14px; margin-bottom:24px;}
+  .intro b{color:var(--navy);}
+  label{display:block; font-weight:600; font-size:13px; color:var(--navy); margin:18px 0 6px;}
+  label .req{color:var(--red);}
+  input[type=text], input[type=date], textarea{
+    width:100%; padding:11px 12px; border:1px solid var(--border); border-radius:8px;
+    font-size:15px; font-family:inherit; background:#fff; transition:border .15s;
+  }
+  input:focus, textarea:focus{outline:none; border-color:var(--blue);}
+  textarea{resize:vertical; min-height:70px;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:0 20px;}
+  @media(max-width:600px){ .grid2{grid-template-columns:1fr;} }
+  h2.sec{font-size:16px; color:var(--navy); margin:26px 0 8px; padding-top:18px; border-top:1px solid var(--border);}
+  .clause{font-size:14px; color:#444;}
+  .sig-box{margin-top:10px; border:1px solid var(--border); border-radius:10px; overflow:hidden;}
+  .tabs{display:flex; border-bottom:1px solid var(--border);}
+  .tabs button{flex:1; padding:12px; border:none; background:var(--light); font-size:14px; font-weight:600; color:#5a6675; cursor:pointer;}
+  .tabs button.active{background:#fff; color:var(--blue); border-bottom:3px solid var(--blue);}
+  .tab-pane{display:none; padding:16px;}
+  .tab-pane.active{display:block;}
+  #sigCanvas{width:100%; height:180px; border:2px dashed var(--border); border-radius:8px; background:#fff; touch-action:none; cursor:crosshair;}
+  .sig-hint{font-size:12px; color:#8a93a3; text-align:center; margin-top:6px;}
+  .btn-row{display:flex; gap:10px; margin-top:10px;}
+  .btn-light{padding:9px 16px; border:1px solid var(--border); background:#fff; border-radius:8px; font-size:13px; cursor:pointer; color:var(--navy);}
+  .btn-light:hover{background:var(--light);}
+  .upload-zone{border:2px dashed var(--border); border-radius:8px; padding:26px; text-align:center; cursor:pointer; color:#5a6675; font-size:14px;}
+  .upload-zone:hover{border-color:var(--blue); color:var(--blue);}
+  #sigPreview{max-height:120px; max-width:100%; display:none; margin:12px auto 0; border:1px solid var(--border); border-radius:6px; padding:6px; background:#fff;}
+  .submit-btn{
+    width:100%; margin-top:30px; padding:15px; border:none; border-radius:10px;
+    background:var(--blue); color:#fff; font-size:16px; font-weight:700; cursor:pointer; transition:background .15s;
+  }
+  .submit-btn:hover{background:#174a99;}
+  .submit-btn:disabled{background:#9db5d9; cursor:wait;}
+  .note{font-size:12px; color:#8a93a3; text-align:center; margin-top:10px;}
+  .alert{display:none; margin-top:16px; padding:13px 16px; border-radius:8px; font-size:14px;}
+  .alert.err{display:block; background:#fdecea; color:var(--red); border:1px solid #f5c6c0;}
+  .alert.ok{display:block; background:#e8f6ee; color:var(--green); border:1px solid #bfe5cf;}
+  #successView{display:none; text-align:center; padding:60px 24px;}
+  #successView .tick{width:74px; height:74px; border-radius:50%; background:var(--green); color:#fff; font-size:38px; line-height:74px; margin:0 auto 18px;}
+  #successView h2{color:var(--navy); margin-bottom:10px;}
+  #successView p{font-size:14px; color:#5a6675; max-width:430px; margin:0 auto 8px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="head">
+      <div class="org">Entrepreneurs Organisation (Gujarat)</div>
+      <h1>DECLARATION FOR ISSUING INVOICES IN THE FAVOUR OF MY COMPANY/ENTITY &amp; AVAILING GST SET OFF</h1>
+      <div class="date-line" id="todayLine"></div>
+    </div>
+
+    <div class="body" id="formView">
+      <div class="intro">
+        I, <b id="pvName">[Name of Member]</b>, S/o / D/o <b id="pvParent">[Father's/Parent's Name]</b>,
+        residing at <b id="pvAddr">[Address]</b>, holding membership with Entrepreneurs Organisation (Gujarat)
+        (hereinafter referred to as the "EO"), do hereby solemnly affirm and undertake as under:
+      </div>
+
+      <form id="declForm" novalidate>
+        <div class="grid2">
+          <div>
+            <label>Name of Member <span class="req">*</span></label>
+            <input type="text" id="memberName" placeholder="Full name" required>
+          </div>
+          <div>
+            <label>S/o / D/o (Father's / Parent's Name) <span class="req">*</span></label>
+            <input type="text" id="parentName" placeholder="Father's / Parent's name" required>
+          </div>
+        </div>
+
+        <label>Residing at (Residential Address) <span class="req">*</span></label>
+        <textarea id="address" placeholder="Full residential address" required></textarea>
+
+        <h2 class="sec">1. Entrepreneurial Position</h2>
+        <p class="clause">I am the partner/owner/director of M/s.</p>
+        <label>M/s. (Company / Entity Name) <span class="req">*</span></label>
+        <input type="text" id="companyName" placeholder="Company / Entity name" required>
+
+        <h2 class="sec">2. Nature of Transaction</h2>
+        <p class="clause">The initial and/or renewal membership and any event/conference fees paid or payable by me to the EO are in my individual capacity. Any membership or other services invoices issued in the name of my entity are raised solely at my own request and will be paid by my company.</p>
+
+        <h2 class="sec">3. Input Tax Credit (ITC) Claim</h2>
+        <p class="clause">That in the event I, directly or indirectly, availed any Input Tax Credit under the provisions of the GST Act, 2017 in respect of such membership fees in the books of my company, firm, LLP, or other entity, the same shall be solely at my own discretion, risk, and responsibility.</p>
+
+        <h2 class="sec">4. No Liability of EO</h2>
+        <p class="clause">That the EO shall not be liable or responsible, in any manner whatsoever, for any ineligibility of ITC under any GST laws or regulations or for any wrongful availment of ITC by me.</p>
+
+        <h2 class="sec">5. Indemnity</h2>
+        <p class="clause">I hereby irrevocably agree to indemnify, defend, and hold harmless to the EO, its trustees, officers, and representatives from and against any and all losses, liabilities, claims, demands, notices, proceedings, damages, penalties, interest, costs, or expenses (including legal fees) arising out of or in connection with: (a) any claim or availment of ITC by me; (b) any inquiry, audit, investigation, or proceedings initiated by the GST Department or any other statutory authority against EO.</p>
+
+        <h2 class="sec">6. Binding Effect</h2>
+        <p class="clause">This declaration-cum-indemnity shall be binding on me, my heirs, legal representatives, successors, and assigns.</p>
+
+        <h2 class="sec">7. Voluntary Execution</h2>
+        <p class="clause">This declaration is executed voluntarily, without any coercion or undue influence, and with full knowledge and understanding of the legal implications thereof.</p>
+
+        <div class="grid2">
+          <div>
+            <label>Date <span class="req">*</span></label>
+            <input type="date" id="declDate" required>
+          </div>
+          <div>
+            <label>Place <span class="req">*</span></label>
+            <input type="text" id="place" value="Ahmedabad" required>
+          </div>
+        </div>
+
+        <h2 class="sec">Signature <span class="req" style="font-size:13px;">*</span></h2>
+        <div class="sig-box">
+          <div class="tabs">
+            <button type="button" id="tabDraw" class="active" onclick="switchTab('draw')">&#9998; Draw Signature</button>
+            <button type="button" id="tabUpload" onclick="switchTab('upload')">&#8682; Upload Signature</button>
+          </div>
+          <div class="tab-pane active" id="paneDraw">
+            <canvas id="sigCanvas"></canvas>
+            <div class="sig-hint">Sign above using mouse, trackpad, or finger on phone</div>
+            <div class="btn-row">
+              <button type="button" class="btn-light" onclick="clearCanvas()">Clear</button>
+            </div>
+          </div>
+          <div class="tab-pane" id="paneUpload">
+            <div class="upload-zone" onclick="document.getElementById('sigFile').click()">
+              Click to choose a signature image<br><small>PNG or JPG, max 2 MB</small>
+            </div>
+            <input type="file" id="sigFile" accept="image/png,image/jpeg" hidden>
+            <img id="sigPreview" alt="Signature preview">
+          </div>
+        </div>
+
+        <label>Name (as signed) <span class="req">*</span></label>
+        <input type="text" id="signName" placeholder="Name below signature" required>
+
+        <div class="alert" id="alertBox"></div>
+
+        <button type="submit" class="submit-btn" id="submitBtn">Save &amp; Submit Declaration</button>
+        <div class="note">On submit: a signed PDF is generated, emailed to <b>eogujarat@gmail.com</b>, and a copy downloads for your records.</div>
+      </form>
+    </div>
+
+    <div id="successView">
+      <div class="tick">&#10003;</div>
+      <h2>Declaration Submitted</h2>
+      <p>Your signed declaration has been sent to <b>eogujarat@gmail.com</b>.</p>
+      <p>A PDF copy has also been downloaded to your device for your records.</p>
+      <p style="margin-top:18px;"><button class="btn-light" onclick="location.reload()">Fill Another Form</button></p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- setup ---------- */
+const RECEIVER = "eogujarat@gmail.com";
+const todayStr = new Date().toLocaleDateString('en-US',{weekday:'long', year:'numeric', month:'long', day:'numeric'});
+document.getElementById('todayLine').textContent = todayStr;
+document.getElementById('declDate').valueAsDate = new Date();
+
+/* live preview of intro line */
+function bindPreview(inputId, spanId, placeholder){
+  const el = document.getElementById(inputId), sp = document.getElementById(spanId);
+  el.addEventListener('input', () => { sp.textContent = el.value.trim() || placeholder; });
+}
+bindPreview('memberName','pvName',"[Name of Member]");
+bindPreview('parentName','pvParent',"[Father's/Parent's Name]");
+bindPreview('address','pvAddr',"[Address]");
+
+/* auto-copy member name into "Name (as signed)" until user edits it */
+let signNameTouched = false;
+document.getElementById('signName').addEventListener('input', () => signNameTouched = true);
+document.getElementById('memberName').addEventListener('input', e => {
+  if(!signNameTouched) document.getElementById('signName').value = e.target.value;
+});
+
+/* ---------- signature: tabs ---------- */
+let sigMode = 'draw';
+function switchTab(mode){
+  sigMode = mode;
+  document.getElementById('tabDraw').classList.toggle('active', mode==='draw');
+  document.getElementById('tabUpload').classList.toggle('active', mode==='upload');
+  document.getElementById('paneDraw').classList.toggle('active', mode==='draw');
+  document.getElementById('paneUpload').classList.toggle('active', mode==='upload');
+}
+
+/* ---------- signature: draw on canvas ---------- */
+const canvas = document.getElementById('sigCanvas');
+const ctx = canvas.getContext('2d');
+let drawing = false, hasDrawn = false;
+
+function sizeCanvas(){
+  const ratio = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if(!w || !h) return;
+  const old = hasDrawn ? canvas.toDataURL() : null;
+  canvas.width = w * ratio;
+  canvas.height = h * ratio;
+  ctx.setTransform(ratio,0,0,ratio,0,0);
+  ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#15233f';
+  if(old){ const img = new Image(); img.onload = () => ctx.drawImage(img,0,0,w,h); img.src = old; }
+}
+window.addEventListener('resize', sizeCanvas);
+window.addEventListener('load', sizeCanvas);
+setTimeout(sizeCanvas, 50);
+
+function pos(e){
+  const r = canvas.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+canvas.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  drawing = true; hasDrawn = true;
+  canvas.setPointerCapture(e.pointerId);
+  const p = pos(e);
+  ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x+0.1, p.y+0.1); ctx.stroke();
+});
+canvas.addEventListener('pointermove', e => {
+  if(!drawing) return;
+  e.preventDefault();
+  const p = pos(e);
+  ctx.lineTo(p.x, p.y); ctx.stroke();
+});
+['pointerup','pointercancel','pointerleave'].forEach(ev =>
+  canvas.addEventListener(ev, () => drawing = false)
+);
+function clearCanvas(){
+  ctx.save(); ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.restore();
+  hasDrawn = false;
+}
+
+/* ---------- signature: upload ---------- */
+let uploadedSig = null; /* dataURL */
+document.getElementById('sigFile').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if(!f) return;
+  if(f.size > 2*1024*1024){ showAlert('err','Signature image must be under 2 MB.'); e.target.value=''; return; }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    uploadedSig = ev.target.result;
+    const img = document.getElementById('sigPreview');
+    img.src = uploadedSig; img.style.display = 'block';
+    hideAlert();
+  };
+  reader.readAsDataURL(f);
+});
+
+function getSignatureDataURL(){
+  if(sigMode === 'draw'){
+    return hasDrawn ? canvas.toDataURL('image/png') : null;
+  }
+  return uploadedSig;
+}
+
+/* ---------- alerts ---------- */
+function showAlert(type, msg){
+  const a = document.getElementById('alertBox');
+  a.className = 'alert ' + (type==='err' ? 'err' : 'ok');
+  a.innerHTML = msg;
+  a.scrollIntoView({behavior:'smooth', block:'center'});
+}
+function hideAlert(){ document.getElementById('alertBox').className = 'alert'; }
+
+/* ---------- PDF generation ---------- */
+function buildPDF(d, sigDataURL){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  const W = 595, M = 52, CW = W - 2*M;
+  let y = 56;
+
+  function check(space){ if(y + space > 790){ doc.addPage(); y = 56; } }
+  function heading(t){
+    check(40);
+    doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(21,42,74);
+    doc.text(t, M, y); y += 16;
+  }
+  function para(t, size=10){
+    doc.setFont('helvetica','normal'); doc.setFontSize(size); doc.setTextColor(50,50,50);
+    const lines = doc.splitTextToSize(t, CW);
+    lines.forEach(line => { check(16); doc.text(line, M, y); y += 13.5; });
+    y += 6;
+  }
+  function field(label, value){
+    check(20);
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(21,42,74);
+    doc.text(label, M, y);
+    doc.setFont('helvetica','normal'); doc.setTextColor(50,50,50);
+    const lines = doc.splitTextToSize(value || '', CW - 230);
+    doc.text(lines, M + 230, y);
+    y += Math.max(16, lines.length * 13.5 + 3);
+  }
+
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(110,110,110);
+  doc.text(d.dateFormatted, W - M, y, {align:'right'}); y += 24;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(21,42,74);
+  doc.splitTextToSize("DECLARATION FOR ISSUING INVOICES IN THE FAVOUR OF MY COMPANY/ENTITY & AVAILING GST SET OFF", CW)
+     .forEach(line => { doc.text(line, M, y); y += 18; });
+  y += 10;
+
+  para(`I, ${d.member}, S/o / D/o ${d.parent}, residing at ${d.address}, holding membership with Entrepreneurs Organisation (Gujarat) (hereinafter referred to as the "EO"), do hereby solemnly affirm and undertake as under:`);
+
+  field("Name of Member", d.member);
+  field("S/o / D/o (Father's / Parent's Name)", d.parent);
+  field("Residing at (Residential Address)", d.address);
+  y += 6;
+
+  heading("1. Entrepreneurial Position");
+  para("I am the partner/owner/director of M/s.");
+  field("M/s. (Company / Entity Name)", d.company);
+  y += 4;
+
+  heading("2. Nature of Transaction");
+  para("The initial and/or renewal membership and any event/conference fees paid or payable by me to the EO are in my individual capacity. Any membership or other services invoices issued in the name of my entity are raised solely at my own request and will be paid by my company.");
+
+  heading("3. Input Tax Credit (ITC) Claim");
+  para("That in the event I, directly or indirectly, availed any Input Tax Credit under the provisions of the GST Act, 2017 in respect of such membership fees in the books of my company, firm, LLP, or other entity, the same shall be solely at my own discretion, risk, and responsibility.");
+
+  heading("4. No Liability of EO");
+  para("That the EO shall not be liable or responsible, in any manner whatsoever, for any ineligibility of ITC under any GST laws or regulations or for any wrongful availment of ITC by me.");
+
+  heading("5. Indemnity");
+  para("I hereby irrevocably agree to indemnify, defend, and hold harmless to the EO, its trustees, officers, and representatives from and against any and all losses, liabilities, claims, demands, notices, proceedings, damages, penalties, interest, costs, or expenses (including legal fees) arising out of or in connection with: (a) any claim or availment of ITC by me; (b) any inquiry, audit, investigation, or proceedings initiated by the GST Department or any other statutory authority against EO.");
+
+  heading("6. Binding Effect");
+  para("This declaration-cum-indemnity shall be binding on me, my heirs, legal representatives, successors, and assigns.");
+
+  heading("7. Voluntary Execution");
+  para("This declaration is executed voluntarily, without any coercion or undue influence, and with full knowledge and understanding of the legal implications thereof.");
+
+  y += 6;
+  field("Date", d.dateFormatted);
+  field("Place", d.place);
+
+  check(110);
+  doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(21,42,74);
+  doc.text("Signature", M, y + 12);
+  if(sigDataURL){
+    const fmt = sigDataURL.indexOf('image/jpeg') > -1 ? 'JPEG' : 'PNG';
+    try{ doc.addImage(sigDataURL, fmt, M + 230, y - 8, 160, 64); }catch(e){}
+  }
+  y += 78;
+  field("Name", d.signName);
+
+  return doc;
+}
+
+/* ---------- submit ---------- */
+document.getElementById('declForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  hideAlert();
+
+  const d = {
+    member: val('memberName'),
+    parent: val('parentName'),
+    address: val('address'),
+    company: val('companyName'),
+    date: val('declDate'),
+    place: val('place'),
+    signName: val('signName')
+  };
+  function val(id){ return document.getElementById(id).value.trim(); }
+
+  for(const [k, label] of [['member','Name of Member'],['parent',"Father's / Parent's Name"],['address','Residential Address'],['company','Company / Entity Name'],['date','Date'],['place','Place'],['signName','Name (as signed)']]){
+    if(!d[k]){ showAlert('err', 'Please fill: <b>' + label + '</b>'); return; }
+  }
+  const sig = getSignatureDataURL();
+  if(!sig){ showAlert('err', sigMode==='draw' ? 'Please draw your signature.' : 'Please upload a signature image.'); return; }
+
+  d.dateFormatted = new Date(d.date + 'T00:00:00').toLocaleDateString('en-US',{weekday:'long', year:'numeric', month:'long', day:'numeric'});
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true; btn.textContent = 'Generating PDF...';
+
+  try{
+    const doc = buildPDF(d, sig);
+    const fname = 'GST-Declaration-' + d.member.replace(/[^a-z0-9]+/gi,'-') + '.pdf';
+    const pdfBlob = doc.output('blob');
+
+    /* download local copy */
+    doc.save(fname);
+
+    btn.textContent = 'Sending to EO Gujarat...';
+
+    const fd = new FormData();
+    fd.append('Name of Member', d.member);
+    fd.append("Father's / Parent's Name", d.parent);
+    fd.append('Residential Address', d.address);
+    fd.append('Company / Entity Name', d.company);
+    fd.append('Date', d.dateFormatted);
+    fd.append('Place', d.place);
+    fd.append('Name (as signed)', d.signName);
+    fd.append('attachment', pdfBlob, fname);
+    fd.append('_subject', 'GST Declaration - ' + d.member + ' (' + d.company + ')');
+    fd.append('_template', 'table');
+    fd.append('_captcha', 'false');
+
+    const res = await fetch('https://formsubmit.co/ajax/' + RECEIVER, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json' },
+      body: fd
+    });
+    const out = await res.json().catch(() => ({}));
+
+    if(res.ok && (out.success === 'true' || out.success === true)){
+      document.getElementById('formView').style.display = 'none';
+      document.getElementById('successView').style.display = 'block';
+      window.scrollTo({top:0, behavior:'smooth'});
+    } else {
+      throw new Error(out.message || 'Submission service did not accept the form.');
+    }
+  } catch(err){
+    const mailto = 'mailto:' + RECEIVER
+      + '?subject=' + encodeURIComponent('GST Declaration - ' + d.member)
+      + '&body=' + encodeURIComponent('Dear EO Gujarat,\n\nPlease find attached my signed GST declaration PDF (downloaded on my device).\n\nName of Member: ' + d.member + '\nCompany / Entity: ' + d.company + '\nDate: ' + d.dateFormatted + '\nPlace: ' + d.place + '\n\nRegards,\n' + d.member);
+    showAlert('err',
+      'Auto-email failed (' + (err.message || 'network error') + ').<br>'
+      + 'Your signed PDF has already been downloaded. '
+      + '<a href="' + mailto + '">Click here to email it to ' + RECEIVER + '</a> and attach the downloaded PDF.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save & Submit Declaration';
+  }
+});
+</script>
+</body>
+</html>
