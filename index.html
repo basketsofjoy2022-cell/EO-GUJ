@@ -157,15 +157,14 @@
         <div class="alert" id="alertBox"></div>
 
         <button type="submit" class="submit-btn" id="submitBtn">Save &amp; Submit Declaration</button>
-        <div class="note">On submit: a signed PDF is generated, emailed to <b>eogujarat@gmail.com</b>, and a copy downloads for your records.</div>
+        <div class="note">On submit: a signed PDF named with your name is generated, saved to the EO Gujarat records folder, emailed to <b>eogujarat@gmail.com</b>, and a copy downloads for your records.</div>
       </form>
     </div>
 
     <div id="successView">
       <div class="tick">&#10003;</div>
       <h2>Declaration Submitted</h2>
-      <p>Your signed declaration has been sent to <b>eogujarat@gmail.com</b>.</p>
-      <p>A PDF copy has also been downloaded to your device for your records.</p>
+      <div id="successDetail"></div>
       <p style="margin-top:18px;"><button class="btn-light" onclick="location.reload()">Fill Another Form</button></p>
     </div>
   </div>
@@ -174,6 +173,10 @@
 <script>
 /* ---------- setup ---------- */
 const RECEIVER = "eogujarat@gmail.com";
+/* Google Apps Script web app URL - every submitted PDF auto-saves to the
+   "EO GST Declarations" folder in the eogujarat@gmail.com Google Drive.
+   See google-apps-script-SETUP.md in the repo for the 5-minute setup. */
+const DRIVE_UPLOAD_URL = "PASTE_APPS_SCRIPT_URL_HERE";
 const todayStr = new Date().toLocaleDateString('en-US',{weekday:'long', year:'numeric', month:'long', day:'numeric'});
 document.getElementById('todayLine').textContent = todayStr;
 document.getElementById('declDate').valueAsDate = new Date();
@@ -394,16 +397,46 @@ document.getElementById('declForm').addEventListener('submit', async function(e)
   const btn = document.getElementById('submitBtn');
   btn.disabled = true; btn.textContent = 'Generating PDF...';
 
+  /* PDF file named with the member's name + date */
+  let doc;
+  try{ doc = buildPDF(d, sig); }
+  catch(e){
+    showAlert('err','PDF generation failed: ' + (e.message || e));
+    btn.disabled = false; btn.textContent = 'Save & Submit Declaration';
+    return;
+  }
+  const fname = 'GST-Declaration-' + d.member.replace(/[^a-z0-9]+/gi,'-') + '-' + d.date + '.pdf';
+  const pdfBlob = doc.output('blob');
+  const pdfBase64 = doc.output('datauristring').split(',')[1];
+
+  /* 1. always download a local copy */
+  doc.save(fname);
+
+  let driveOk = null, emailOk = null;
+
+  /* 2. auto-upload to the EO Gujarat Drive folder */
+  if(DRIVE_UPLOAD_URL.indexOf('http') === 0){
+    btn.textContent = 'Uploading to EO Gujarat records...';
+    try{
+      const r = await fetch(DRIVE_UPLOAD_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          fileName: fname,
+          pdfBase64: pdfBase64,
+          member: d.member,
+          company: d.company,
+          date: d.dateFormatted,
+          place: d.place
+        })
+      });
+      const j = await r.json().catch(() => ({}));
+      driveOk = j.success === true;
+    }catch(e){ driveOk = false; }
+  }
+
+  /* 3. email a copy (best effort, does not block) */
+  btn.textContent = 'Emailing EO Gujarat...';
   try{
-    const doc = buildPDF(d, sig);
-    const fname = 'GST-Declaration-' + d.member.replace(/[^a-z0-9]+/gi,'-') + '.pdf';
-    const pdfBlob = doc.output('blob');
-
-    /* download local copy */
-    doc.save(fname);
-
-    btn.textContent = 'Sending to EO Gujarat...';
-
     const fd = new FormData();
     fd.append('Name of Member', d.member);
     fd.append("Father's / Parent's Name", d.parent);
@@ -416,32 +449,38 @@ document.getElementById('declForm').addEventListener('submit', async function(e)
     fd.append('_subject', 'GST Declaration - ' + d.member + ' (' + d.company + ')');
     fd.append('_template', 'table');
     fd.append('_captcha', 'false');
-
     const res = await fetch('https://formsubmit.co/ajax/' + RECEIVER, {
       method: 'POST',
       headers: { 'Accept': 'application/json' },
       body: fd
     });
     const out = await res.json().catch(() => ({}));
+    emailOk = res.ok && (out.success === 'true' || out.success === true);
+  }catch(e){ emailOk = false; }
 
-    if(res.ok && (out.success === 'true' || out.success === true)){
-      document.getElementById('formView').style.display = 'none';
-      document.getElementById('successView').style.display = 'block';
-      window.scrollTo({top:0, behavior:'smooth'});
-    } else {
-      throw new Error(out.message || 'Submission service did not accept the form.');
-    }
-  } catch(err){
+  /* 4. result */
+  if(driveOk === true || emailOk === true){
+    const lines = [];
+    lines.push('Your PDF copy <b>' + fname + '</b> has been downloaded to your device.');
+    if(driveOk === true) lines.push('Saved to the EO Gujarat records folder on Google Drive.');
+    if(emailOk === true) lines.push('Emailed to <b>' + RECEIVER + '</b>.');
+    if(driveOk === false) lines.push('<span style="color:#c0392b">Drive upload failed. The email copy went through, so EO has your form.</span>');
+    if(emailOk === false) lines.push('<span style="color:#c0392b">Email failed. The Drive copy went through, so EO has your form.</span>');
+    document.getElementById('successDetail').innerHTML = lines.map(l => '<p>' + l + '</p>').join('');
+    document.getElementById('formView').style.display = 'none';
+    document.getElementById('successView').style.display = 'block';
+    window.scrollTo({top:0, behavior:'smooth'});
+  } else {
     const mailto = 'mailto:' + RECEIVER
       + '?subject=' + encodeURIComponent('GST Declaration - ' + d.member)
       + '&body=' + encodeURIComponent('Dear EO Gujarat,\n\nPlease find attached my signed GST declaration PDF (downloaded on my device).\n\nName of Member: ' + d.member + '\nCompany / Entity: ' + d.company + '\nDate: ' + d.dateFormatted + '\nPlace: ' + d.place + '\n\nRegards,\n' + d.member);
     showAlert('err',
-      'Auto-email failed (' + (err.message || 'network error') + ').<br>'
-      + 'Your signed PDF has already been downloaded. '
+      'Auto-submit failed (network or service issue).<br>'
+      + 'Your signed PDF <b>' + fname + '</b> has already been downloaded. '
       + '<a href="' + mailto + '">Click here to email it to ' + RECEIVER + '</a> and attach the downloaded PDF.');
-  } finally {
-    btn.disabled = false; btn.textContent = 'Save & Submit Declaration';
   }
+
+  btn.disabled = false; btn.textContent = 'Save & Submit Declaration';
 });
 </script>
 </body>
