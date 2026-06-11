@@ -412,11 +412,12 @@ document.getElementById('declForm').addEventListener('submit', async function(e)
   /* 1. always download a local copy */
   doc.save(fname);
 
-  let driveOk = null, emailOk = null;
+  let driveOk = null, scriptEmailed = false, emailOk = null;
 
-  /* 2. auto-upload to the EO Gujarat Drive folder */
+  /* 2. upload to EO Gujarat records: the script saves the PDF to Google Drive
+        AND emails eogujarat@gmail.com with the PDF attached */
   if(DRIVE_UPLOAD_URL.indexOf('http') === 0){
-    btn.textContent = 'Uploading to EO Gujarat records...';
+    btn.textContent = 'Submitting to EO Gujarat...';
     try{
       const r = await fetch(DRIVE_UPLOAD_URL, {
         method: 'POST',
@@ -424,48 +425,57 @@ document.getElementById('declForm').addEventListener('submit', async function(e)
           fileName: fname,
           pdfBase64: pdfBase64,
           member: d.member,
+          parent: d.parent,
+          address: d.address,
           company: d.company,
           date: d.dateFormatted,
-          place: d.place
+          place: d.place,
+          signName: d.signName
         })
       });
       const j = await r.json().catch(() => ({}));
       driveOk = j.success === true;
+      scriptEmailed = j.emailed === true;
     }catch(e){ driveOk = false; }
   }
 
-  /* 3. email a copy (best effort, does not block) */
-  btn.textContent = 'Emailing EO Gujarat...';
-  try{
-    const fd = new FormData();
-    fd.append('Name of Member', d.member);
-    fd.append("Father's / Parent's Name", d.parent);
-    fd.append('Residential Address', d.address);
-    fd.append('Company / Entity Name', d.company);
-    fd.append('Date', d.dateFormatted);
-    fd.append('Place', d.place);
-    fd.append('Name (as signed)', d.signName);
-    fd.append('attachment', pdfBlob, fname);
-    fd.append('_subject', 'GST Declaration - ' + d.member + ' (' + d.company + ')');
-    fd.append('_template', 'table');
-    fd.append('_captcha', 'false');
-    const res = await fetch('https://formsubmit.co/ajax/' + RECEIVER, {
-      method: 'POST',
-      headers: { 'Accept': 'application/json' },
-      body: fd
-    });
-    const out = await res.json().catch(() => ({}));
-    emailOk = res.ok && (out.success === 'true' || out.success === true);
-  }catch(e){ emailOk = false; }
+  /* 3. fallback email (only if the records upload did not go through) */
+  if(driveOk !== true){
+    btn.textContent = 'Emailing EO Gujarat...';
+    try{
+      const fd = new FormData();
+      fd.append('Name of Member', d.member);
+      fd.append("Father's / Parent's Name", d.parent);
+      fd.append('Residential Address', d.address);
+      fd.append('Company / Entity Name', d.company);
+      fd.append('Date', d.dateFormatted);
+      fd.append('Place', d.place);
+      fd.append('Name (as signed)', d.signName);
+      fd.append('attachment', pdfBlob, fname);
+      fd.append('_subject', 'GST Declaration - ' + d.member + ' (' + d.company + ')');
+      fd.append('_template', 'table');
+      fd.append('_captcha', 'false');
+      const res = await fetch('https://formsubmit.co/ajax/' + RECEIVER, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+        body: fd
+      });
+      const out = await res.json().catch(() => ({}));
+      emailOk = res.ok && (out.success === 'true' || out.success === true);
+    }catch(e){ emailOk = false; }
+  }
 
   /* 4. result */
   if(driveOk === true || emailOk === true){
     const lines = [];
     lines.push('Your PDF copy <b>' + fname + '</b> has been downloaded to your device.');
-    if(driveOk === true) lines.push('Saved to the EO Gujarat records folder on Google Drive.');
-    if(emailOk === true) lines.push('Emailed to <b>' + RECEIVER + '</b>.');
-    if(driveOk === false) lines.push('<span style="color:#c0392b">Drive upload failed. The email copy went through, so EO has your form.</span>');
-    if(emailOk === false) lines.push('<span style="color:#c0392b">Email failed. The Drive copy went through, so EO has your form.</span>');
+    if(driveOk === true){
+      lines.push('Saved to the EO Gujarat records folder on Google Drive.');
+      if(scriptEmailed) lines.push('Emailed to <b>' + RECEIVER + '</b> with the signed PDF attached.');
+    } else if(emailOk === true){
+      lines.push('Emailed to <b>' + RECEIVER + '</b>.');
+      if(driveOk === false) lines.push('<span style="color:#c0392b">Records folder save failed, but the email went through, so EO has your form.</span>');
+    }
     document.getElementById('successDetail').innerHTML = lines.map(l => '<p>' + l + '</p>').join('');
     document.getElementById('formView').style.display = 'none';
     document.getElementById('successView').style.display = 'block';
